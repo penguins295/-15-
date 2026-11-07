@@ -1,168 +1,379 @@
-import streamlit as st
-import streamlit.components.v1 as components
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>진행상황 알리미</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+    body { margin: 0; padding: 16px; background-color: #e2e8f0; display: flex; justify-content: center; }
+    .notebook {
+      width: 100%; max-width: 900px; min-height: 680px;
+      background-color: #fffef7;
+      background-image:
+        linear-gradient(90deg, transparent 46px, #ef4444 46px, #ef4444 48px, transparent 48px),
+        repeating-linear-gradient(to bottom, #fffef7 0px, #fffef7 31px, #93c5fd 32px);
+      border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      padding: 24px 28px 28px 64px; position: relative; border: 2px solid #cbd5e1;
+    }
+    .title-bar { text-align: center; margin-bottom: 18px; }
+    .title-bar h1 {
+      margin: 0; font-size: 2.2rem; color: #1e293b; background: #fef08a;
+      display: inline-block; padding: 4px 24px; border-radius: 8px;
+      border: 2px solid #1e293b; box-shadow: 3px 3px 0 #1e293b;
+    }
+    .home-layout {
+      display: grid; grid-template-columns: 190px 1fr 190px;
+      grid-template-rows: 130px 240px 130px; gap: 16px; align-items: stretch; margin-top: 12px;
+    }
+    .corner-btn {
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      font-size: 1.35rem; font-weight: 900; border: 3px solid #1e293b; border-radius: 14px;
+      cursor: pointer; box-shadow: 4px 4px 0 #1e293b; transition: transform 0.1s;
+    }
+    .corner-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #1e293b; }
+    .btn-school { grid-column: 1; grid-row: 1; background: #bfdbfe; color: #1e3a8a; }
+    .btn-reading { grid-column: 3; grid-row: 1; background: #bbf7d0; color: #14532d; }
+    .btn-academy { grid-column: 1; grid-row: 3; background: #ddd6fe; color: #4c1d95; }
+    .btn-etc { grid-column: 3; grid-row: 3; background: #fed7aa; color: #7c2d12; }
+    .center-board {
+      grid-column: 1 / 4; grid-row: 2; background: rgba(255,255,255,0.92);
+      border: 3px dashed #dc2626; border-radius: 14px; padding: 14px 18px; overflow-y: auto;
+    }
+    @media (min-width: 700px) { .center-board { grid-column: 2; grid-row: 1 / 4; } }
+    .center-board h2 {
+      margin: 0 0 10px 0; font-size: 1.3rem; color: #dc2626;
+      text-align: center; border-bottom: 2px solid #fecaca; padding-bottom: 6px;
+    }
+    .urgent-item {
+      background: #fff1f2; border-left: 5px solid #e11d48; padding: 8px 12px;
+      margin-bottom: 8px; border-radius: 6px; font-size: 0.95rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .badge {
+      font-size: 0.8rem; font-weight: bold; padding: 2px 8px; border-radius: 99px;
+      background: #e11d48; color: #fff; white-space: nowrap; margin-left: 8px;
+    }
+    .top-actions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .add-top-btn {
+      width: 100%; padding: 14px; font-size: 1.2rem; font-weight: 900;
+      background: #2563eb; color: #fff; border: 2px solid #1e293b;
+      border-radius: 10px; cursor: pointer; box-shadow: 3px 3px 0 #1e293b;
+    }
+    .add-top-btn:hover { background: #1d4ed8; }
+    .nav-bar { display: flex; justify-content: space-between; align-items: center; }
+    .back-btn {
+      padding: 8px 16px; font-size: 0.95rem; font-weight: bold;
+      background: #f1f5f9; color: #1e293b; border: 2px solid #1e293b;
+      border-radius: 8px; cursor: pointer;
+    }
+    .section-title { font-size: 1.4rem; font-weight: 900; color: #1e293b; margin: 0; }
+    .card-list { display: flex; flex-direction: column; gap: 12px; }
+    .subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+    .subject-card {
+      background: #fff; border: 2px solid #1e293b; border-radius: 12px;
+      padding: 18px 14px; text-align: center; cursor: pointer;
+      box-shadow: 3px 3px 0 #1e293b; position: relative;
+    }
+    .subject-card:hover { background: #f8fafc; }
+    .subject-card h3 { margin: 0 0 6px 0; font-size: 1.25rem; color: #0f172a; }
+    .subject-card p { margin: 0; font-size: 0.85rem; color: #64748b; }
+    .del-mini {
+      position: absolute; top: 6px; right: 8px; background: none; border: none;
+      color: #ef4444; font-weight: bold; cursor: pointer; font-size: 1rem;
+    }
+    .item-card {
+      background: #fff; border: 2px solid #1e293b; border-radius: 10px;
+      padding: 14px; box-shadow: 2px 2px 0 #1e293b;
+    }
+    .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+    .item-title { font-size: 1.15rem; font-weight: 900; color: #0f172a; }
+    .page-ctrl { display: flex; align-items: center; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+    .page-btn { padding: 4px 10px; font-weight: bold; border: 1px solid #1e293b; border-radius: 6px; background: #e2e8f0; cursor: pointer; }
+    .memo-box { background: #f8fafc; border-left: 4px solid #64748b; padding: 8px 10px; font-size: 0.95rem; white-space: pre-wrap; margin-top: 6px; color: #334155; }
+    .due-tag { font-size: 0.85rem; color: #dc2626; font-weight: bold; margin-top: 6px; }
+    .form-panel { background: #f8fafc; border: 2px solid #1e293b; border-radius: 10px; padding: 14px; margin-bottom: 16px; display: none; }
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; color: #1e293b; }
+    .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.95rem; }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .save-btn { padding: 8px 16px; background: #16a34a; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .cancel-btn { padding: 8px 16px; background: #64748b; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .empty-msg { text-align: center; color: #64748b; padding: 24px 8px; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <div class="notebook">
+    <div class="title-bar"><h1>진행상황 알리미</h1></div>
 
-st.set_page_config(page_title="2인용 에어하키", page_icon="🏒", layout="centered")
+    <div id="view-home">
+      <div class="home-layout">
+        <button class="corner-btn btn-school" onclick="openSection('school')">
+          🏫 학교 수업
+          <span style="font-size:0.8rem;font-weight:normal;margin-top:4px;">과목별 진도/핵심</span>
+        </button>
+        <button class="corner-btn btn-reading" onclick="openSection('reading')">
+          📚 독서
+          <span style="font-size:0.8rem;font-weight:normal;margin-top:4px;">읽은 페이지/내용</span>
+        </button>
+        <div class="center-board">
+          <h2>⏰ 임박한 일 (기한 알림)</h2>
+          <div id="urgent-list"></div>
+        </div>
+        <button class="corner-btn btn-academy" onclick="openSection('academy')">
+          ✏️ 학원 수업
+          <span style="font-size:0.8rem;font-weight:normal;margin-top:4px;">과목별 진도/핵심</span>
+        </button>
+        <button class="corner-btn btn-etc" onclick="openSection('etc')">
+          📝 기타
+          <span style="font-size:0.8rem;font-weight:normal;margin-top:4px;">자유 메모/숙제</span>
+        </button>
+      </div>
+    </div>
 
-game_html = (
-    "<!DOCTYPE html><html><head><style>"
-    "body { background: #0f172a; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 12px; user-select: none; }"
-    ".scoreboard { display: flex; justify-content: space-between; align-items: center; width: 700px; margin-bottom: 8px; padding: 10px 20px; background: #1e293b; border-radius: 12px; box-sizing: border-box; }"
-    ".score-box { font-size: 24px; font-weight: 900; }"
-    ".p1-color { color: #38bdf8; }"
-    ".p2-color { color: #f43f5e; }"
-    "#status { font-size: 16px; font-weight: bold; color: #facc15; text-align: center; }"
-    "canvas { border: 5px solid #334155; border-radius: 14px; background: #f8fafc; box-shadow: 0 10px 25px rgba(0,0,0,0.5); outline: none; }"
-    ".controls-info { display: flex; justify-content: space-between; width: 700px; margin-top: 10px; font-size: 14px; color: #cbd5e1; }"
-    "button { margin-top: 8px; padding: 8px 20px; font-size: 15px; font-weight: bold; border: none; border-radius: 8px; background: #3b82f6; color: #fff; cursor: pointer; }"
-    "button:hover { background: #2563eb; }"
-    "</style></head><body>"
-    '<div class="scoreboard">'
-    '  <div class="score-box p1-color">1P: <span id="s1">0</span></div>'
-    '  <div id="status">화면을 한 번 클릭한 뒤 게임을 시작하세요!</div>'
-    '  <div class="score-box p2-color">2P: <span id="s2">0</span></div>'
-    "</div>"
-    '<canvas id="hockey" width="700" height="420" tabindex="0"></canvas>'
-    '<div class="controls-info">'
-    '  <span>🔵 <b>1P 조작:</b> W (위) / S (아래)</span>'
-    '  <span>⚡ <b>움직이면서 공을 치면 초가속 스매시!</b> (7점 선승)</span>'
-    '  <span>🔴 <b>2P 조작:</b> PageUp·↑ (위) / PageDown·↓ (아래)</span>'
-    "</div>"
-    '<button onclick="resetMatch()">🔄 새 게임 시작</button>'
-    "<script>"
-    "const canvas = document.getElementById('hockey');"
-    "const ctx = canvas.getContext('2d');"
-    "const statusEl = document.getElementById('status');"
-    "const s1El = document.getElementById('s1');"
-    "const s2El = document.getElementById('s2');"
-    "const W = canvas.width, H = canvas.height;"
-    "const WIN_SCORE = 7;"
-    "const PADDLE_W = 14, PADDLE_H = 84, PADDLE_SPEED = 7.5;"
-    "let keys = {};"
-    "let score1 = 0, score2 = 0, gameOver = false;"
-    "let server = Math.random() < 0.5 ? 1 : 2;"
-    "let waitingServe = true;"
-    "let boostFlash = 0;"
-    "let p1 = { x: 22, y: H/2 - PADDLE_H/2, vy: 0, color: '#0284c7' };"
-    "let p2 = { x: W - 22 - PADDLE_W, y: H/2 - PADDLE_H/2, vy: 0, color: '#e11d48' };"
-    "let ball = { x: 0, y: 0, r: 12, vx: 0, vy: 0, speed: 6.5 };"
-    "function placeBallForServe(who) {"
-    "  waitingServe = true;"
-    "  ball.speed = 6.5;"
-    "  ball.vx = 0; ball.vy = 0;"
-    "  if (who === 1) {"
-    "    ball.x = p1.x + PADDLE_W + ball.r + 6;"
-    "    ball.y = p1.y + PADDLE_H / 2;"
-    "    statusEl.innerText = '🔵 1P 서브! (W 또는 S 키를 눌러 서브하세요)';"
-    "  } else {"
-    "    ball.x = p2.x - ball.r - 6;"
-    "    ball.y = p2.y + PADDLE_H / 2;"
-    "    statusEl.innerText = '🔴 2P 서브! (PageUp/PageDown 또는 ↑/↓ 키로 서브)';"
-    "  }"
-    "}"
-    "function launchServe(who, dirY) {"
-    "  waitingServe = false;"
-    "  ball.speed = 7.0;"
-    "  ball.vx = (who === 1 ? 1 : -1) * ball.speed;"
-    "  ball.vy = dirY * 3.5 + (Math.random() - 0.5) * 1.5;"
-    "  statusEl.innerText = '🏒 경기 진행 중!';"
-    "}"
-    "window.addEventListener('keydown', e => {"
-    "  if (['KeyW','KeyS','PageUp','PageDown','ArrowUp','ArrowDown','Space'].includes(e.code)) {"
-    "    e.preventDefault();"
-    "  }"
-    "  keys[e.code] = true;"
-    "});"
-    "window.addEventListener('keyup', e => { keys[e.code] = false; });"
-    "canvas.addEventListener('click', () => canvas.focus());"
-    "function update() {"
-    "  if (gameOver) return;"
-    "  p1.vy = 0; p2.vy = 0;"
-    "  if (keys['KeyW']) p1.vy = -PADDLE_SPEED;"
-    "  if (keys['KeyS']) p1.vy = PADDLE_SPEED;"
-    "  if (keys['PageUp'] || keys['ArrowUp']) p2.vy = -PADDLE_SPEED;"
-    "  if (keys['PageDown'] || keys['ArrowDown']) p2.vy = PADDLE_SPEED;"
-    "  p1.y = Math.max(8, Math.min(H - PADDLE_H - 8, p1.y + p1.vy));"
-    "  p2.y = Math.max(8, Math.min(H - PADDLE_H - 8, p2.y + p2.vy));"
-    "  if (waitingServe) {"
-    "    if (server === 1) {"
-    "      ball.y = p1.y + PADDLE_H / 2;"
-    "      if (p1.vy !== 0) launchServe(1, Math.sign(p1.vy));"
-    "    } else {"
-    "      ball.y = p2.y + PADDLE_H / 2;"
-    "      if (p2.vy !== 0) launchServe(2, Math.sign(p2.vy));"
-    "    }"
-    "    return;"
-    "  }"
-    "  ball.x += ball.vx;"
-    "  ball.y += ball.vy;"
-    "  if (ball.y - ball.r <= 6) { ball.y = 6 + ball.r; ball.vy *= -1; }"
-    "  if (ball.y + ball.r >= H - 6) { ball.y = H - 6 - ball.r; ball.vy *= -1; }"
-    "  if (ball.vx < 0 && ball.x - ball.r <= p1.x + PADDLE_W && ball.x + ball.r >= p1.x && ball.y + ball.r >= p1.y && ball.y - ball.r <= p1.y + PADDLE_H) {"
-    "    ball.x = p1.x + PADDLE_W + ball.r;"
-    "    let moving = Math.abs(p1.vy) > 0;"
-    "    ball.speed = Math.min(19, ball.speed * (moving ? 1.22 : 1.05));"
-    "    let hitPos = ((ball.y - (p1.y + PADDLE_H/2)) / (PADDLE_H/2));"
-    "    let angle = hitPos * (Math.PI / 3.2);"
-    "    ball.vx = Math.cos(angle) * ball.speed;"
-    "    ball.vy = Math.sin(angle) * ball.speed + (p1.vy * 0.45);"
-    "    if (moving) { boostFlash = 15; statusEl.innerText = '⚡ 1P 가속 스매시!! (속도 상승)'; }"
-    "  }"
-    "  if (ball.vx > 0 && ball.x + ball.r >= p2.x && ball.x - ball.r <= p2.x + PADDLE_W && ball.y + ball.r >= p2.y && ball.y - ball.r <= p2.y + PADDLE_H) {"
-    "    ball.x = p2.x - ball.r;"
-    "    let moving = Math.abs(p2.vy) > 0;"
-    "    ball.speed = Math.min(19, ball.speed * (moving ? 1.22 : 1.05));"
-    "    let hitPos = ((ball.y - (p2.y + PADDLE_H/2)) / (PADDLE_H/2));"
-    "    let angle = hitPos * (Math.PI / 3.2);"
-    "    ball.vx = -Math.cos(angle) * ball.speed;"
-    "    ball.vy = Math.sin(angle) * ball.speed + (p2.vy * 0.45);"
-    "    if (moving) { boostFlash = 15; statusEl.innerText = '⚡ 2P 가속 스매시!! (속도 상승)'; }"
-    "  }"
-    "  if (ball.x - ball.r <= 0) {"
-    "    score2++; s2El.innerText = score2;"
-    "    if (score2 >= WIN_SCORE) { gameOver = true; statusEl.innerText = '🏆 2P 최종 승리! (새 게임 버튼을 누르세요)'; }"
-    "    else { server = 1; placeBallForServe(1); }"
-    "  } else if (ball.x + ball.r >= W) {"
-    "    score1++; s1El.innerText = score1;"
-    "    if (score1 >= WIN_SCORE) { gameOver = true; statusEl.innerText = '🏆 1P 최종 승리! (새 게임 버튼을 누르세요)'; }"
-    "    else { server = 2; placeBallForServe(2); }"
-    "  }"
-    "}"
-    "function drawTable() {"
-    "  ctx.fillStyle = '#f8fafc';"
-    "  ctx.fillRect(0, 0, W, H);"
-    "  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 4;"
-    "  ctx.beginPath(); ctx.arc(0, H/2, 90, -Math.PI/2, Math.PI/2); ctx.stroke();"
-    "  ctx.beginPath(); ctx.arc(W, H/2, 90, Math.PI/2, -Math.PI/2); ctx.stroke();"
-    "  ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3;"
-    "  ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();"
-    "  ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;"
-    "  ctx.beginPath(); ctx.arc(W/2, H/2, 55, 0, Math.PI*2); ctx.stroke();"
-    "}"
-    "function draw() {"
-    "  drawTable();"
-    "  ctx.fillStyle = p1.color;"
-    "  ctx.fillRect(p1.x, p1.y, PADDLE_W, PADDLE_H);"
-    "  ctx.fillStyle = p2.color;"
-    "  ctx.fillRect(p2.x, p2.y, PADDLE_W, PADDLE_H);"
-    "  ctx.beginPath();"
-    "  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);"
-    "  if (boostFlash > 0) { ctx.fillStyle = '#f97316'; boostFlash--; }"
-    "  else { ctx.fillStyle = '#1e293b'; }"
-    "  ctx.fill();"
-    "  ctx.lineWidth = 3; ctx.strokeStyle = '#fbbf24'; ctx.stroke();"
-    "}"
-    "function resetMatch() {"
-    "  score1 = 0; score2 = 0; gameOver = false;"
-    "  s1El.innerText = '0'; s2El.innerText = '0';"
-    "  p1.y = H/2 - PADDLE_H/2; p2.y = H/2 - PADDLE_H/2;"
-    "  server = Math.random() < 0.5 ? 1 : 2;"
-    "  placeBallForServe(server);"
-    "  canvas.focus();"
-    "}"
-    "function loop() { update(); draw(); requestAnimationFrame(loop); }"
-    "resetMatch();"
-    "loop();"
-    "</script></body></html>"
-)
+    <div id="view-sub" style="display:none;">
+      <div class="top-actions">
+        <button class="add-top-btn" id="top-add-btn" onclick="toggleForm()">＋ 추가하기</button>
+        <div class="nav-bar">
+          <button class="back-btn" id="back-btn" onclick="goBack()">← 돌아가기</button>
+          <h2 class="section-title" id="sub-title"></h2>
+        </div>
+      </div>
+      <div class="form-panel" id="form-panel"></div>
+      <div id="sub-content"></div>
+    </div>
+  </div>
 
-components.html(game_html, height=560)
+  <script>
+    const STORAGE_KEY = 'progress_notifier_v1';
+    let state = { reading: [], school: [], academy: [], etc: [] };
+    let currentSection = null;
+    let currentSubjectId = null;
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) state = JSON.parse(raw);
+      } catch (e) { console.error(e); }
+    }
+
+    function saveData() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { console.error(e); }
+    }
+
+    function calcDDay(dateStr) {
+      if (!dateStr) return null;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const target = new Date(dateStr + 'T00:00:00');
+      const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+      if (diff === 0) return { text: '오늘 마감 (D-Day)', diff: 0 };
+      if (diff > 0) return { text: 'D-' + diff + ' (' + dateStr + '까지)', diff: diff };
+      return { text: '기한 지남 (' + dateStr + ')', diff: diff };
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function renderHome() {
+      document.getElementById('view-home').style.display = 'block';
+      document.getElementById('view-sub').style.display = 'none';
+      currentSection = null; currentSubjectId = null;
+      let deadlines = [];
+      state.reading.forEach(b => { if (b.due) deadlines.push({ cat: '독서', title: b.title + ' (' + b.page + 'p)', due: b.due }); });
+      ['school', 'academy'].forEach(type => {
+        const label = type === 'school' ? '학교' : '학원';
+        state[type].forEach(subj => {
+          (subj.notes || []).forEach(n => {
+            if (n.due) deadlines.push({ cat: label + '-' + subj.name, title: n.progress, due: n.due });
+          });
+        });
+      });
+      state.etc.forEach(m => { if (m.due) deadlines.push({ cat: '기타', title: m.title, due: m.due }); });
+      deadlines.sort((a, b) => new Date(a.due) - new Date(b.due));
+      const box = document.getElementById('urgent-list');
+      if (deadlines.length === 0) {
+        box.innerHTML = '<div class="empty-msg">기한이 설정된 임박한 일이 없습니다.<br>각 목록에서 기한을 등록해 보세요!</div>';
+        return;
+      }
+      box.innerHTML = deadlines.map(d => {
+        const info = calcDDay(d.due);
+        return '<div class="urgent-item"><div><b>[' + escapeHtml(d.cat) + ']</b> ' + escapeHtml(d.title) + '</div><span class="badge">' + info.text + '</span></div>';
+      }).join('');
+    }
+
+    function openSection(sec) {
+      currentSection = sec; currentSubjectId = null;
+      document.getElementById('view-home').style.display = 'none';
+      document.getElementById('view-sub').style.display = 'block';
+      document.getElementById('form-panel').style.display = 'none';
+      renderSub();
+    }
+
+    function goBack() {
+      if (currentSubjectId !== null) {
+        currentSubjectId = null;
+        document.getElementById('form-panel').style.display = 'none';
+        renderSub();
+      } else {
+        renderHome();
+      }
+    }
+
+    function renderSub() {
+      const titleEl = document.getElementById('sub-title');
+      const addBtn = document.getElementById('top-add-btn');
+      const content = document.getElementById('sub-content');
+      if (currentSection === 'reading') {
+        titleEl.innerText = '📚 독서 목록';
+        addBtn.innerText = '＋ 추가하기 (새 책 등록)';
+        if (state.reading.length === 0) {
+          content.innerHTML = '<div class="empty-msg">등록된 책이 없습니다. 제일 위의 [＋ 추가하기] 버튼을 눌러 책을 추가하세요.</div>';
+          return;
+        }
+        content.innerHTML = '<div class="card-list">' + state.reading.map((b, idx) => (
+          '<div class="item-card">' +
+          '<div class="item-header"><span class="item-title">📖 ' + escapeHtml(b.title) + '</span>' +
+          '<button class="cancel-btn" style="background:#ef4444;padding:4px 10px;" onclick="deleteReading(' + idx + ')">삭제</button></div>' +
+          '<div class="page-ctrl">현재 진도: <b>' + b.page + ' 페이지</b> ' +
+          '<button class="page-btn" onclick="changePage(' + idx + ',-10)">-10</button>' +
+          '<button class="page-btn" onclick="changePage(' + idx + ',-1)">-1</button>' +
+          '<button class="page-btn" onclick="changePage(' + idx + ',1)">+1</button>' +
+          '<button class="page-btn" onclick="changePage(' + idx + ',10)">+10</button></div>' +
+          (b.memo ? '<div class="memo-box">' + escapeHtml(b.memo) + '</div>' : '') +
+          (b.due ? '<div class="due-tag">⏰ 기한: ' + calcDDay(b.due).text + '</div>' : '') +
+          '</div>'
+        )).join('') + '</div>';
+      } else if (currentSection === 'school' || currentSection === 'academy') {
+        const label = currentSection === 'school' ? '🏫 학교 수업' : '✏️ 학원 수업';
+        const list = state[currentSection];
+        if (currentSubjectId === null) {
+          titleEl.innerText = label + ' (과목 선택)';
+          addBtn.innerText = '＋ 추가하기 (과목 칸 추가)';
+          if (list.length === 0) {
+            content.innerHTML = '<div class="empty-msg">등록된 과목 칸이 없습니다. 제일 위의 [＋ 추가하기] 버튼으로 과목을 만드세요.</div>';
+            return;
+          }
+          content.innerHTML = '<div class="subject-grid">' + list.map((subj, idx) => (
+            '<div class="subject-card" onclick="openSubject(' + idx + ')">' +
+            '<button class="del-mini" onclick="event.stopPropagation();deleteSubject(' + idx + ')">✕</button>' +
+            '<h3>' + escapeHtml(subj.name) + '</h3>' +
+            '<p>기록 ' + (subj.notes ? subj.notes.length : 0) + '개</p>' +
+            '</div>'
+          )).join('') + '</div>';
+        } else {
+          const subj = list[currentSubjectId];
+          titleEl.innerText = label + ' - ' + subj.name;
+          addBtn.innerText = '＋ 추가하기 (수업 진도 / 핵심 내용 추가)';
+          const notes = subj.notes || [];
+          if (notes.length === 0) {
+            content.innerHTML = '<div class="empty-msg">저장된 수업 진도가 없습니다. 제일 위의 [＋ 추가하기] 버튼을 눌러 기록하세요.</div>';
+            return;
+          }
+          content.innerHTML = '<div class="card-list">' + notes.map((n, nIdx) => (
+            '<div class="item-card">' +
+            '<div class="item-header"><span class="item-title">📌 진도: ' + escapeHtml(n.progress) + '</span>' +
+            '<button class="cancel-btn" style="background:#ef4444;padding:4px 10px;" onclick="deleteNote(' + nIdx + ')">삭제</button></div>' +
+            (n.core ? '<div class="memo-box"><b>[핵심 내용]</b>\n' + escapeHtml(n.core) + '</div>' : '') +
+            (n.due ? '<div class="due-tag">⏰ 숙제/기한: ' + calcDDay(n.due).text + '</div>' : '') +
+            '</div>'
+          )).join('') + '</div>';
+        }
+      } else if (currentSection === 'etc') {
+        titleEl.innerText = '📝 기타 메모 목록';
+        addBtn.innerText = '＋ 추가하기 (새 메모 등록)';
+        if (state.etc.length === 0) {
+          content.innerHTML = '<div class="empty-msg">저장된 메모가 없습니다. 제일 위의 [＋ 추가하기] 버튼을 눌러 추가하세요.</div>';
+          return;
+        }
+        content.innerHTML = '<div class="card-list">' + state.etc.map((m, idx) => (
+          '<div class="item-card">' +
+          '<div class="item-header"><span class="item-title">📝 ' + escapeHtml(m.title) + '</span>' +
+          '<button class="cancel-btn" style="background:#ef4444;padding:4px 10px;" onclick="deleteEtc(' + idx + ')">삭제</button></div>' +
+          (m.memo ? '<div class="memo-box">' + escapeHtml(m.memo) + '</div>' : '') +
+          (m.due ? '<div class="due-tag">⏰ 기한: ' + calcDDay(m.due).text + '</div>' : '') +
+          '</div>'
+        )).join('') + '</div>';
+      }
+    }
+
+    function toggleForm() {
+      const panel = document.getElementById('form-panel');
+      if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      if (currentSection === 'reading') {
+        panel.innerHTML = '<div class="form-group"><label>책 제목</label><input id="f-title" placeholder="예: 데미안"></div>' +
+          '<div class="form-group"><label>읽은 페이지 (숫자)</label><input id="f-page" type="number" value="1"></div>' +
+          '<div class="form-group"><label>책 내용 메모 (선택)</label><textarea id="f-memo" rows="3" placeholder="기억하고 싶은 줄거리나 구절"></textarea></div>' +
+          '<div class="form-group"><label>기한 설정 (선택 - 독서록 제출일 등)</label><input id="f-due" type="date"></div>' +
+          '<div class="form-actions"><button class="cancel-btn" onclick="toggleForm()">취소</button><button class="save-btn" onclick="saveReading()">저장</button></div>';
+      } else if ((currentSection === 'school' || currentSection === 'academy') && currentSubjectId === null) {
+        panel.innerHTML = '<div class="form-group"><label>추가할 과목 이름</label><input id="f-subj" placeholder="예: 국어, 수학, 영어, 과학"></div>' +
+          '<div class="form-actions"><button class="cancel-btn" onclick="toggleForm()">취소</button><button class="save-btn" onclick="saveSubject()">과목 칸 만들기</button></div>';
+      } else if ((currentSection === 'school' || currentSection === 'academy') && currentSubjectId !== null) {
+        panel.innerHTML = '<div class="form-group"><label>수업 어디까지 나갔는지 (진도)</label><input id="f-prog" placeholder="예: 3단원 이차방정식 54쪽까지"></div>' +
+          '<div class="form-group"><label>수업 핵심 내용 정리</label><textarea id="f-core" rows="4" placeholder="시험에 나오는 핵심 공식이나 선생님 강조 내용"></textarea></div>' +
+          '<div class="form-group"><label>숙제/제출 기한 (선택)</label><input id="f-due" type="date"></div>' +
+          '<div class="form-actions"><button class="cancel-btn" onclick="toggleForm()">취소</button><button class="save-btn" onclick="saveNote()">저장</button></div>';
+      } else if (currentSection === 'etc') {
+        panel.innerHTML = '<div class="form-group"><label>제목</label><input id="f-title" placeholder="예: 수행평가 준비물 챙기기"></div>' +
+          '<div class="form-group"><label>메모 내용</label><textarea id="f-memo" rows="3" placeholder="자유롭게 메모하세요"></textarea></div>' +
+          '<div class="form-group"><label>기한 설정 (선택)</label><input id="f-due" type="date"></div>' +
+          '<div class="form-actions"><button class="cancel-btn" onclick="toggleForm()">취소</button><button class="save-btn" onclick="saveEtc()">저장</button></div>';
+      }
+    }
+
+    function saveReading() {
+      const title = document.getElementById('f-title').value.trim();
+      const page = parseInt(document.getElementById('f-page').value || '0', 10);
+      const memo = document.getElementById('f-memo').value.trim();
+      const due = document.getElementById('f-due').value;
+      if (!title) return alert('책 제목을 입력하세요.');
+      state.reading.unshift({ title, page, memo, due });
+      saveData(); document.getElementById('form-panel').style.display = 'none'; renderSub();
+    }
+
+    function changePage(idx, delta) {
+      state.reading[idx].page = Math.max(0, (state.reading[idx].page || 0) + delta);
+      saveData(); renderSub();
+    }
+
+    function deleteReading(idx) { state.reading.splice(idx, 1); saveData(); renderSub(); }
+
+    function saveSubject() {
+      const name = document.getElementById('f-subj').value.trim();
+      if (!name) return alert('과목 이름을 입력하세요.');
+      state[currentSection].push({ name, notes: [] });
+      saveData(); document.getElementById('form-panel').style.display = 'none'; renderSub();
+    }
+
+    function openSubject(idx) { currentSubjectId = idx; document.getElementById('form-panel').style.display = 'none'; renderSub(); }
+    function deleteSubject(idx) { state[currentSection].splice(idx, 1); saveData(); renderSub(); }
+
+    function saveNote() {
+      const progress = document.getElementById('f-prog').value.trim();
+      const core = document.getElementById('f-core').value.trim();
+      const due = document.getElementById('f-due').value;
+      if (!progress) return alert('수업 진도를 입력하세요.');
+      state[currentSection][currentSubjectId].notes.unshift({ progress, core, due });
+      saveData(); document.getElementById('form-panel').style.display = 'none'; renderSub();
+    }
+
+    function deleteNote(nIdx) { state[currentSection][currentSubjectId].notes.splice(nIdx, 1); saveData(); renderSub(); }
+
+    function saveEtc() {
+      const title = document.getElementById('f-title').value.trim();
+      const memo = document.getElementById('f-memo').value.trim();
+      const due = document.getElementById('f-due').value;
+      if (!title) return alert('제목을 입력하세요.');
+      state.etc.unshift({ title, memo, due });
+      saveData(); document.getElementById('form-panel').style.display = 'none'; renderSub();
+    }
+
+    function deleteEtc(idx) { state.etc.splice(idx, 1); saveData(); renderSub(); }
+
+    loadData();
+    renderHome();
+  </script>
+</body>
+</html>
