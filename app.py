@@ -1,54 +1,169 @@
 import streamlit as st
-import random
+import streamlit.components.v1 as components
 
-st.set_page_config(page_title="가위바위보 게임", page_icon="✌️", layout="centered")
+st.set_page_config(page_title="테트리스", page_icon="🧱", layout="centered")
 
-css_code = (
-    "<style>"
-    ".title-text { font-size: 3.5rem; font-weight: 900; text-align: center; margin-bottom: 2rem; }"
-    ".result-box { font-size: 2rem; font-weight: 800; text-align: center; margin-top: 2.5rem; padding: 2rem; border-radius: 16px; background-color: #f0f2f6; color: #111111; line-height: 1.6; }"
-    "div.stButton > button { width: 100%; height: 5rem; border-radius: 12px; border: 3px solid #111111 !important; background-color: #111111 !important; }"
-    "div.stButton > button p { color: #FFFFFF !important; font-size: 1.8rem !important; font-weight: 800 !important; margin: 0 !important; }"
-    "div.stButton > button:hover { background-color: #FF0000 !important; border-color: #FF0000 !important; }"
-    "</style>"
+tetris_html = (
+    "<!DOCTYPE html><html><head><style>"
+    "body { background: #111; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 12px; border-radius: 16px; user-select: none; }"
+    ".header { display: flex; justify-content: space-between; width: 240px; margin-bottom: 8px; font-size: 18px; font-weight: bold; }"
+    "#status { color: #ff3b3b; }"
+    "canvas { border: 3px solid #fff; background: #000; box-shadow: 0 0 15px rgba(255,255,255,0.2); }"
+    ".controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 240px; margin-top: 12px; }"
+    "button { padding: 10px 4px; font-size: 14px; font-weight: bold; border: none; border-radius: 8px; background: #333; color: #fff; cursor: pointer; }"
+    "button:hover { background: #555; }"
+    "button:active { background: #777; }"
+    "</style></head><body>"
+    '<div class="header"><span>점수: <span id="score">0</span></span><span id="status"></span></div>'
+    '<canvas id="tetris" width="240" height="480"></canvas>'
+    '<div class="controls">'
+    '<button onclick="move(-1)">◀ 왼쪽</button>'
+    '<button onclick="rotatePiece()">🔄 회전</button>'
+    '<button onclick="move(1)">오른쪽 ▶</button>'
+    '<button onclick="drop()">▼ 내리기</button>'
+    '<button onclick="hardDrop()" style="background:#e53935;">⏬ 한방에</button>'
+    '<button onclick="resetGame()" style="background:#1e88e5;">🔄 리셋</button>'
+    "</div>"
+    "<script>"
+    "const canvas = document.getElementById('tetris');"
+    "const ctx = canvas.getContext('2d');"
+    "ctx.scale(24, 24);"
+    "const COLORS = [null, '#00f0f0', '#f0f000', '#a000f0', '#00f000', '#f00000', '#0000f0', '#f0a000'];"
+    "const SHAPES = ["
+    "  [],"
+    "  [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],"
+    "  [[2,2],[2,2]],"
+    "  [[0,3,0],[3,3,3],[0,0,0]],"
+    "  [[0,4,4],[4,4,0],[0,0,0]],"
+    "  [[5,5,0],[0,5,5],[0,0,0]],"
+    "  [[6,0,0],[6,6,6],[0,0,0]],"
+    "  [[0,0,7],[7,7,7],[0,0,0]]"
+    "];"
+    "let board = Array.from({length: 20}, () => Array(10).fill(0));"
+    "let score = 0, gameOver = false, dropCounter = 0, lastTime = 0;"
+    "let player = { pos: {x: 3, y: 0}, matrix: null };"
+    "function collide(b, p) {"
+    "  const m = p.matrix, o = p.pos;"
+    "  for (let y = 0; y < m.length; ++y) {"
+    "    for (let x = 0; x < m[y].length; ++x) {"
+    "      if (m[y][x] !== 0 && (b[y + o.y] && b[y + o.y][x + o.x]) !== 0) return true;"
+    "    }"
+    "  }"
+    "  return false;"
+    "}"
+    "function merge(b, p) {"
+    "  p.matrix.forEach((row, y) => {"
+    "    row.forEach((val, x) => {"
+    "      if (val !== 0) b[y + p.pos.y][x + p.pos.x] = val;"
+    "    });"
+    "  });"
+    "}"
+    "function sweep() {"
+    "  outer: for (let y = board.length - 1; y >= 0; --y) {"
+    "    for (let x = 0; x < board[y].length; ++x) {"
+    "      if (board[y][x] === 0) continue outer;"
+    "    }"
+    "    const row = board.splice(y, 1)[0].fill(0);"
+    "    board.unshift(row);"
+    "    ++y;"
+    "    score += 100;"
+    "    document.getElementById('score').innerText = score;"
+    "  }"
+    "}"
+    "function spawn() {"
+    "  const id = (Math.random() * 7 | 0) + 1;"
+    "  player.matrix = SHAPES[id].map(r => [...r]);"
+    "  player.pos.y = 0;"
+    "  player.pos.x = (board[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);"
+    "  if (collide(board, player)) {"
+    "    gameOver = true;"
+    "    document.getElementById('status').innerText = '게임 오버!';"
+    "  }"
+    "}"
+    "function drawMatrix(m, offset) {"
+    "  m.forEach((row, y) => {"
+    "    row.forEach((val, x) => {"
+    "      if (val !== 0) {"
+    "        ctx.fillStyle = COLORS[val];"
+    "        ctx.fillRect(x + offset.x, y + offset.y, 1, 1);"
+    "        ctx.strokeStyle = '#111';"
+    "        ctx.lineWidth = 0.08;"
+    "        ctx.strokeRect(x + offset.x, y + offset.y, 1, 1);"
+    "      }"
+    "    });"
+    "  });"
+    "}"
+    "function draw() {"
+    "  ctx.fillStyle = '#000';"
+    "  ctx.fillRect(0, 0, canvas.width, canvas.height);"
+    "  drawMatrix(board, {x: 0, y: 0});"
+    "  if (player.matrix) drawMatrix(player.matrix, player.pos);"
+    "}"
+    "function drop() {"
+    "  if (gameOver) return;"
+    "  player.pos.y++;"
+    "  if (collide(board, player)) {"
+    "    player.pos.y--;"
+    "    merge(board, player);"
+    "    sweep();"
+    "    spawn();"
+    "  }"
+    "  dropCounter = 0;"
+    "  draw();"
+    "}"
+    "function hardDrop() {"
+    "  if (gameOver) return;"
+    "  while (!collide(board, player)) { player.pos.y++; }"
+    "  player.pos.y--;"
+    "  merge(board, player);"
+    "  sweep();"
+    "  spawn();"
+    "  dropCounter = 0;"
+    "  draw();"
+    "}"
+    "function move(dir) {"
+    "  if (gameOver) return;"
+    "  player.pos.x += dir;"
+    "  if (collide(board, player)) player.pos.x -= dir;"
+    "  draw();"
+    "}"
+    "function rotatePiece() {"
+    "  if (gameOver) return;"
+    "  const m = player.matrix;"
+    "  const rotated = m[0].map((_, i) => m.map(row => row[i]).reverse());"
+    "  const prev = player.matrix;"
+    "  player.matrix = rotated;"
+    "  if (collide(board, player)) player.matrix = prev;"
+    "  draw();"
+    "}"
+    "function resetGame() {"
+    "  board.forEach(row => row.fill(0));"
+    "  score = 0;"
+    "  gameOver = false;"
+    "  document.getElementById('score').innerText = '0';"
+    "  document.getElementById('status').innerText = '';"
+    "  spawn();"
+    "  draw();"
+    "}"
+    "document.addEventListener('keydown', e => {"
+    "  if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space'].includes(e.code)) e.preventDefault();"
+    "  if (e.code === 'ArrowLeft') move(-1);"
+    "  else if (e.code === 'ArrowRight') move(1);"
+    "  else if (e.code === 'ArrowDown') drop();"
+    "  else if (e.code === 'ArrowUp') rotatePiece();"
+    "  else if (e.code === 'Space') hardDrop();"
+    "});"
+    "function update(time = 0) {"
+    "  const dt = time - lastTime;"
+    "  lastTime = time;"
+    "  dropCounter += dt;"
+    "  if (dropCounter > 700) drop();"
+    "  draw();"
+    "  requestAnimationFrame(update);"
+    "}"
+    "resetGame();"
+    "update();"
+    "</script></body></html>"
 )
-st.markdown(css_code, unsafe_allow_html=True)
 
-st.markdown('<div class="title-text">가위 바위 보!</div>', unsafe_allow_html=True)
-
-choices = ["가위", "바위", "보"]
-user_choice = None
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    if st.button("✌️ 가위"):
-        user_choice = "가위"
-with col2:
-    if st.button("✊ 바위"):
-        user_choice = "바위"
-with col3:
-    if st.button("🖐️ 보"):
-        user_choice = "보"
-
-if user_choice:
-    comp_choice = random.choice(choices)
-
-    if user_choice == comp_choice:
-        outcome = "비겼습니다."
-    elif (
-        (user_choice == "가위" and comp_choice == "보")
-        or (user_choice == "바위" and comp_choice == "가위")
-        or (user_choice == "보" and comp_choice == "바위")
-    ):
-        outcome = "당신이 이겼습니다!"
-    else:
-        outcome = "당신이 졌습니다."
-
-    result_html = (
-        f'<div class="result-box">'
-        f"컴퓨터는 <b>{comp_choice}</b>를 골랐습니다.<br>"
-        f'<span style="color: #FF0000; font-size: 2.8rem;">{outcome}</span>'
-        f"</div>"
-    )
-    st.markdown(result_html, unsafe_allow_html=True)
+components.html(tetris_html, height=640)
